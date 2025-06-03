@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIGC 提示詞庫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            background-color: #f7fafc; /* Tailwind gray-100 */
+            color: #2d3748; /* Tailwind gray-800 */
+            line-height: 1.6;
+        }
+        .tab-active {
+            background-color: #4299e1; /* Tailwind blue-500 */
+            color: white;
+            font-weight: 600;
+        }
+        .tab-inactive:hover {
+            background-color: #ebf8ff; /* Tailwind blue-100 */
+            color: #2b6cb0; /* Tailwind blue-600 */
+        }
+        .prompt-card {
+            background-color: white;
+            border-radius: 0.75rem; /* 12px */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Ensures buttons are at the bottom */
+            padding: 1.5rem; /* Increased padding */
+        }
+        .prompt-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .sticky-sidebar {
+            position: sticky;
+            top: 1.5rem;
+            height: calc(100vh - 3rem);
+            overflow-y: auto;
+            padding-right: 0.5rem; /* Space for scrollbar */
+        }
+        .sticky-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sticky-sidebar::-webkit-scrollbar-track {
+            background: #edf2f7; /* Tailwind gray-200 */
+            border-radius: 10px;
+        }
+        .sticky-sidebar::-webkit-scrollbar-thumb {
+            background: #a0aec0; /* Tailwind gray-500 */
+            border-radius: 10px;
+        }
+        .sticky-sidebar::-webkit-scrollbar-thumb:hover {
+            background: #718096; /* Tailwind gray-600 */
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 1.5rem 2rem; /* Adjusted padding */
+            border: none;
+            width: 90%;
+            max-width: 650px;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .close-button {
+            color: #718096; /* gray-600 */
+            float: right;
+            font-size: 2rem;
+            line-height: 1;
+            font-weight: bold;
+            transition: color 0.2s ease;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #2d3748; /* gray-800 */
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .lang-toggle-btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.5rem; /* 8px */
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .lang-toggle-btn.active-lang-cn { /* When Chinese is displayed */
+            background-color: #4299e1; /* blue-500 */
+            color: white;
+            border-color: #2b6cb0; /* blue-700 */
+        }
+        .lang-toggle-btn.active-lang-en { /* When English is displayed */
+            background-color: #4a5568; /* gray-700 */
+            color: white;
+            border-color: #2d3748; /* gray-800 */
+        }
+        .copy-btn {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .copy-btn:hover {
+            transform: translateY(-1px);
+        }
+        .copy-btn-cn {
+            background-color: #c6f6d5; /* green-200 */
+            color: #2f855a; /* green-700 */
+        }
+        .copy-btn-cn:hover {
+            background-color: #9ae6b4; /* green-300 */
+        }
+        .copy-btn-en {
+            background-color: #e0e7ff; /* indigo-200 */
+            color: #4338ca; /* indigo-700 */
+        }
+        .copy-btn-en:hover {
+            background-color: #c7d2fe; /* indigo-300 */
+        }
+        .alert-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #f56565; /* red-500 */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            z-index: 2000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto px-4 py-6 md:px-6 md:py-8">
+        <header class="mb-10">
+            <div class="flex flex-col sm:flex-row justify-between items-center sm:items-end mb-3">
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-700 text-center sm:text-left">AIGC 提示詞庫</h1>
+                <div class="mt-3 sm:mt-0">
+                     <button id="langToggleBtn" class="lang-toggle-btn">
+                        <span id="langToggleText"></span>
+                    </button>
+                </div>
+            </div>
+            <p class="text-gray-500 text-center sm:text-left text-sm md:text-base">探索與學習鏡頭語言的創意提示</p>
+        </header>
+
+        <div class="md:flex md:space-x-8">
+            <aside id="categorySidebar" class="md:w-1/4 lg:w-1/5 mb-8 md:mb-0 sticky-sidebar p-4 bg-white rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b border-gray-300 pb-3">提示詞分類</h2>
+                <nav id="categoryTabs" class="space-y-1.5">
+                    </nav>
+                 <div class="mt-10 pt-6 border-t border-gray-300">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">學生提示詞分配</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="studentId" class="block text-sm font-medium text-gray-600 mb-1.5">輸入學生序號 (1-18):</label>
+                            <input type="number" id="studentId" name="studentId" min="1" max="18" class="mt-1 block w-full px-3 py-2.5 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <button id="assignButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-md shadow-md hover:shadow-lg transition duration-150 ease-in-out">
+                            分配提示詞
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="md:w-3/4 lg:w-4/5">
+                <div id="promptDisplay" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+                    </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="assignedPromptsModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-5">
+                <h2 id="modalTitle" class="text-xl sm:text-2xl font-bold text-gray-700">分配的提示詞</h2>
+                <span class="close-button" id="closeModalButton">&times;</span>
+            </div>
+            <div id="assignedPromptsContent" class="space-y-4 text-sm">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const promptDataString = `
+# AIGC 提示詞文稿（已完善）
+
+## 風格提示詞 (Style Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 真實攝影 | Realistic Photography | 照片般真實, 高細節, 8K, 銳利對焦 | photorealistic, high detail, 8K, sharp focus | 
+| 2 | 暗調攝影 | Low Key Photography | 陰鬱, 戲劇性陰影, 高對比, 神秘 | moody, dramatic shadows, high contrast, mysterious | 
+| 3 | 黑白攝影 | Black and White Photography | 單色, 高對比, 膠片顆粒, 經典黑色電影 | monochrome, high contrast, film grain, classic noir | 
+| 4 | 哥特風格 | Gothic Style | 黑暗, 華麗, 神秘, 戲劇性建築 | dark, ornate, mysterious, dramatic architecture | 
+| 5 | 電影感 | Cinematic | 寬銀幕比例, 戲劇性光效, 膠片顆粒, 史詩感 | wide aspect ratio, dramatic lighting, film grain, epic | 
+| 6 | 夢幻感 | Dreamlike | 空靈, 柔焦, 魔幻, 超現實, 粉彩 | ethereal, soft focus, magical, surreal, pastel | 
+| 7 | iPhone攝影 | iPhone Photography | 抓拍, 自然光, 手機攝影, 現代 | candid, natural light, mobile shot, modern | 
+| 8 | 超現實主義 | Surrealism | 不合邏輯場景, 夢幻般, 象徵性, 怪誕 | illogical scenes, dreamlike, symbolic, bizarre | 
+| 9 | 印象派 | Impressionism | 可見筆觸, 光影遊戲, 柔和邊緣, 鮮明 | visible brushstrokes, light play, soft edges, vibrant | 
+| 10 | 抽象藝術 | Abstract Art | 非具象, 形狀, 色彩, 紋理 | non-representational, shapes, colors, textures | 
+| 11 | 極簡主義 | Minimalism | 簡潔形式, 乾淨線條, 負空間, 含蓄 | simple forms, clean lines, negative space, subtle | 
+| 12 | 賽博龐克 | Cyberpunk | 未來感, 霓虹燈, 反烏托邦, 高科技 | futuristic, neon lights, dystopian, high-tech | 
+| 13 | 蒸汽龐克 | Steampunk | 維多利亞時代, 齒輪, 蒸汽動力, 復古未來感 | Victorian, gears, steam-powered, retrofuturistic | 
+| 14 | 科幻風格 | Sci-Fi Style | 未來感, 太空, 先進科技, 外星人 | futuristic, space, advanced technology, alien | 
+| 15 | 水彩畫 | Watercolor Painting | 輕柔渲染, 半透明, 明亮, 流動色彩 | soft washes, translucent, light, flowing colors | 
+| 16 | 油畫 | Oil Painting | 豐富紋理, 大膽筆觸, 經典, 厚塗法 | rich textures, bold strokes, classic, impasto | 
+| 17 | 素描 | Sketch | 手繪, 鉛筆線條, 排線, 粗獷 | hand-drawn, pencil lines, hatching, rough | 
+| 18 | 鉛筆畫 | Pencil Drawing | 石墨, 細緻線條, 陰影, 單色 | graphite, detailed lines, shaded, monochrome | 
+| 19 | 炭筆畫 | Charcoal Drawing | 大膽筆觸, 濃黑, 塗抹感, 富有表現力 | bold strokes, rich blacks, smudged, expressive | 
+| 20 | 塗鴉藝術 | Graffiti Art | 街頭藝術, 噴漆, 大膽字母, 都市感 | street art, spray paint, bold letters, urban | 
+| 21 | 黑暗奇幻 | Dark Fantasy | 冷峻, 魔幻, 神秘生物, 史詩戰鬥 | grim, magical, mythical creatures, epic battles | 
+| 22 | 廢土風格 | Wasteland Style | 末日後, 荒涼, 崎嶇, 生存 | post-apocalyptic, desolate, rugged, survival | 
+| 23 | 黏土風 | Claymation Style / Clay Art | 雕塑感, 定格動畫外觀, 紋理感, 俏皮 | sculpted, stop-motion look, textured, playful | 
+| 24 | 剪紙風 | Paper Cut Art / Kirigami | 層疊紙張, 剪影, 精細, 雅致 | layered paper, silhouette, intricate, delicate | 
+| 25 | 像素風 | Pixel Art | 復古, 8位元, 方塊感, 懷舊, 低解析度 | retro, 8-bit, blocky, nostalgic, low-resolution | 
+| 26 | 低多邊形風格 | Low Poly Style | 幾何, 切面感, 極簡, 風格化3D | geometric, faceted, minimalist, stylized 3D | 
+| 27 | 中國水墨風 | Chinese Ink Painting | 單色, 筆觸, 禪意, 傳統 | monochrome, brushstrokes, zen, traditional | 
+| 28 | 日式浮世繪 | Japanese Ukiyo-e | 木刻版畫, 鮮豔色彩, 歷史場景 | woodblock print, vibrant colors, historical scenes | 
+| 29 | 卡通風格 | Cartoon Style | 動畫外觀, 粗線條, 表情豐富, 簡潔 | animated look, bold outlines, expressive, simple | 
+| 30 | 動漫風格 | Anime Style | 日本動畫, 大眼睛, 鮮豔髮色, 動感 | Japanese animation, large eyes, vibrant hair, dynamic | 
+| 31 | 美漫風格 | American Comic Style | 粗線條, 動感動作, 超級英雄, 圖形感 | bold lines, dynamic action, superhero, graphic | 
+| 32 | 3D渲染 | 3D Render | 數位藝術, 真實光照, CGI, 精緻 | digital art, realistic lighting, CGI, polished | 
+| 33 | 皮克斯風格 | Pixar Style | 迷人角色, 表情豐富, 精細3D, 親子向 | charming characters, expressive, detailed 3D, family-friendly | 
+| 34 | 迪士尼風格 | Disney Style | 經典動畫, 童話故事, 表情豐富, 標誌性 | classic animation, fairytale, expressive, iconic | 
+| 35 | 梵高風格 | Van Gogh Style | 厚塗, 漩渦筆觸, 富有表現力的色彩 | impasto, swirling brushstrokes, expressive color | 
+| 36 | 畢卡索風格 | Picasso Style | 立體主義, 抽象人物, 碎片化, 大膽 | cubism, abstract figures, fragmented, bold | 
+| 37 | 莫內風格 | Monet Style | 印象派, 光影效果, 睡蓮, 柔和 | impressionistic, light effects, water lilies, soft | 
+| 38 | 宮崎駿風格 | Miyazaki Style / Ghibli Style | 迷人, 自然主題, 精細背景, 奇幻 | enchanting, nature themes, detailed backgrounds, whimsical | 
+| 39 | 新海誠風格 | Makoto Shinkai Style | 絕美天空, 精細場景, 情感豐富, 光線 | breathtaking skies, detailed scenery, emotional, light | 
+
+## 構圖提示詞 (Composition Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 三分法構圖 | Rule of Thirds | 平衡, 主體偏離中心, 動感, 引人入勝 | balanced, off-center subject, dynamic, engaging | 
+| 2 | 黃金分割構圖 | Golden Ratio | 和諧, 美觀, 自然流暢 | harmonious, aesthetically pleasing, natural flow | 
+| 3 | 對稱構圖 | Symmetrical Composition | 平衡, 正式, 鏡像, 居中 | balanced, formal, mirror image, centered | 
+| 4 | 引導線構圖 | Leading Lines | 縱深感, 引導視線, 透視, 方向性 | depth, guides eye, perspective, directional | 
+| 5 | 框架構圖 | Framing Composition | 縱深感, 聚焦主體, 自然框架, 窗戶 | depth, focus on subject, natural frame, window | 
+| 6 | 對角線構圖 | Diagonal Composition | 動感, 運動感, 活力, 張力 | dynamic, movement, energy, tension | 
+| 7 | 三角形構圖 | Triangle Composition | 穩定, 動感, 引導性, 群組主體 | stability, dynamic, leading, group subjects | 
+| 8 | 留白 | Negative Space | 極簡, 突出主體, 呼吸空間, 乾淨 | minimalist, focus, breathing room, clean | 
+| 9 | 中央構圖 | Centered Composition | 直接聚焦, 對稱, 大膽, 有衝擊力 | direct focus, symmetrical, bold, impactful | 
+| 10 | S型構圖 | S-Curve Composition | 優雅流暢, 縱深感, 引導視線, 蜿蜒 | graceful flow, depth, leading eye, winding | 
+| 11 | 鳥瞰式構圖 | Bird's-eye View / Top-down | 全景, 圖案感, 開闊, 高角度 | overview, pattern, expansive, high angle | 
+| 12 | 蟲瞻式構圖 | Worm's-eye View / Low Angle | 壓迫感, 戲劇性, 透視, 仰望 | imposing, dramatic, perspective, looking up | 
+
+## 角度提示詞 (Angle Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 俯視 | High Angle Shot | 主體顯小, 全貌, 削弱感 | subject looks smaller, overview, diminished | 
+| 2 | 鳥瞰 | Bird's-eye View | 正上方, 頂視, 地圖般, 圖案感 | directly overhead, top-down, map-like, pattern | 
+| 3 | 仰視 | Low Angle Shot | 主體顯大, 有力, 壓迫感, 英雄氣概 | subject looks larger, powerful, imposing, heroic | 
+| 4 | 平視 | Eye-Level Shot | 中性, 親切, 直接, 標準視角 | neutral, relatable, direct, standard perspective | 
+| 5 | 傾斜 | Dutch Angle / Canted Angle | 不安感, 動感, 張力,迷失方向 | unsettling, dynamic, tension, disorientation | 
+| 6 | 正面視角 | Front View | 直接, 對抗感, 對稱, 肖像 | direct, confrontational, symmetrical, portrait | 
+| 7 | 背面視角 | Rear View / Back View | 神秘, 觀察, 從後方, 剪影 | mysterious, observing, from behind, silhouette | 
+| 8 | 四分三視角 | Three-Quarter View | 縱深感, 立體感, 常見肖像角度, 側面輪廓 | depth, dimension, common portrait angle, profile | 
+| 9 | 過肩視角 | Over-the-Shoulder Shot | 對話感, 視角, 親密感, 對話 | conversation, perspective, intimacy, dialogue | 
+| 10 | 主觀視角 | Point of View (POV) | 沈浸式, 第一人稱, 體驗式, 主觀 | immersive, first-person, experiential, subjective | 
+
+## 景別提示詞 (Shot Scale Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 超大遠景 | Extreme Long Shot (ELS) | 廣闊場景, 定場鏡頭, 遠處主體 | vast scenery, establishing shot, distant subject | 
+| 2 | 遠景 | Long Shot (LS) | 全身主體, 環境背景, 廣角視野 | full body subject, environment context, wide view | 
+| 3 | 全景 | Full Shot (FS) | 主體充滿畫面, 從頭到腳, 角色聚焦 | subject fills frame, head to toe, character focus | 
+| 4 | 中近景 (七分身) | Medium Long Shot (MLS) / Three-Quarter Shot | 膝蓋以上, 互動, 肢體語言, 美式鏡頭 | knees up, interaction, body language, American shot | 
+| 5 | 中景 (半身) | Medium Shot (MS) | 腰部以上, 對話, 表情, 常見鏡頭 | waist up, dialogue, expressions, common shot | 
+| 6 | 中近景 (胸上) | Medium Close-Up (MCU) | 胸部以上, 面部表情, 親密感, 對話 | chest up, facial expressions, intimacy, dialogue | 
+| 7 | 近景 (肩上) | Close-Up (CU) | 肩部以上, 面部聚焦, 情感, 細節 | shoulders up, face focus, emotion, detail | 
+| 8 | 特寫 | Extreme Close-Up (ECU/XCU) | 特定細節, 眼睛, 物件局部, 強烈 | specific detail, eyes, object part, intense | 
+| 9 | 大特寫 | Big Close-Up (BCU) | 面部充滿畫面, 強烈情感, 細節 | fills screen with face, intense emotion, detail | 
+| 10 | 細節鏡頭 (微距) | Detail Shot / Macro Shot | 微小主體, 極致細節, 紋理, 昆蟲眼睛 | tiny subject, extreme detail, texture, insect eye | 
+| 11 | 自拍鏡頭 | Selfie Shot | 第一人稱, 手臂長度, 休閒, 直視鏡頭 | first-person, arm's length, casual, direct gaze | 
+
+## 光影提示詞 (Lighting Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 自然光 | Natural Light | 日光, 柔和, 真實, 戶外, 窗光 | sunlight, soft, realistic, outdoor, window light | 
+| 2 | 工作室燈光 | Studio Lighting | 可控, 專業, 主光, 補光 | controlled, professional, key light, fill light | 
+| 3 | 柔和光線 | Soft Light | 漫射, 柔和陰影, 美化, 陰天 | diffused, gentle shadows, flattering, overcast | 
+| 4 | 硬光 | Hard Light | 銳利陰影, 高對比, 直射陽光, 戲劇性 | sharp shadows, high contrast, direct sun, dramatic | 
+| 5 | 戲劇燈光 | Dramatic Lighting | 高對比, 陰影, 陰鬱, 戲劇化, 強烈 | high contrast, shadows, moody, theatrical, intense | 
+| 6 | 神聖光 | Divine Light / God Rays | 體積光, 雲隙光, 空靈, 天堂般 | volumetric, crepuscular rays, ethereal, heavenly | 
+| 7 | 丁達爾光 | Tyndall Effect / Volumetric | 光束, 可見粒子, 大氣感, 霧濛濛 | light beams, particles visible, atmospheric, misty | 
+| 8 | 輪廓光 | Rim Lighting | 勾勒主體, 逆光, 分離感, 光暈 | outlines subject, backlight, separation, halo | 
+| 9 | 剪影 | Silhouette | 黑色輪廓, 明亮背景, 神秘, 輪廓 | dark shape, bright background, mystery, outline | 
+| 10 | 黃金時刻 | Golden Hour | 暖光, 長陰影, 日出, 日落, 魔幻 | warm light, long shadows, sunrise, sunset, magical | 
+| 11 | 藍調時刻 | Blue Hour | 冷光, 深藍天空, 黎明, 黃昏, 寧靜 | cool light, deep blue sky, dawn, dusk, serene | 
+| 12 | 暮光 | Twilight | 柔和,漸逝光線, 日落後, 日出前 | soft, fading light, after sunset, before sunrise | 
+| 13 | 月光 | Moonlight | 冷色調, 昏暗, 夜景, 浪漫, 神秘 | cool, dim, night scene, romantic, mysterious | 
+| 14 | 霓虹燈光 | Neon Lighting | 鮮豔色彩, 賽博龐克, 都市夜晚, 發光 | vibrant colors, cyberpunk, urban night, glowing | 
+| 15 | 電影燈光 | Cinematic Lighting | 有目的性, 營造氛圍, 高品質, 風格化 | purposeful, mood-setting, high quality, stylized | 
+| 16 | 高對比燈光 | High Contrast Lighting | 強烈高光, 深邃陰影, 戲劇性, 黑色電影 | strong highlights, deep shadows, dramatic, noir | 
+| 17 | 倫勃朗光 | Rembrandt Lighting | 面頰三角光, 肖像, 經典, 戲劇性 | triangular light on cheek, portrait, classic, dramatic | 
+| 18 | 強烈陰影 | Strong Shadows | 明確, 黑暗區域, 縱深感, 神秘, 圖形感 | defined, dark areas, depth, mystery, graphic | 
+| 19 | 蝴蝶光 | Butterfly Lighting | 派拉蒙光, 鼻下對稱陰影, 魅力 | paramount lighting, symmetrical shadow under nose, glamour | 
+| 20 | 頂光 | Top Lighting | 從上方照射, 製造神秘或粗糙感 | light from above, can create mystery or harshness | 
+| 21 | 側光 | Side Lighting | 突顯紋理, 立體感, 半明半暗, 戲劇性 | reveals texture, dimension, half-lit, dramatic | 
+| 22 | 底光 | Under Lighting | 向上照明, 詭異, 不自然, 恐怖, 戲劇性 | uplighting, eerie, unnatural, horror, dramatic | 
+| 23 | 火光 | Firelight | 溫暖, 閃爍, 營火, 燭光, 舒適 | warm, flickering, campfire, candlelight, cozy | 
+| 24 | 窗戶光 | Window Light | 自然室內光, 柔和, 定向性, 經典肖像 | natural indoor, soft, directional, classic portrait | 
+| 25 | 發光效果 | Glowing Effect / Bloom | 發光, 輻射光, 柔和光環, 魔幻, 空靈 | luminous, radiant, soft aura, magical, ethereal | 
+| 26 | 光斑 (鏡頭光暈) | Lens Flare / Light Bloom | 明亮條紋, 光學效應, 電影感, 陽光明媚 | bright streaks, optical effect, cinematic, sunny | 
+| 27 | 水下光線 | Underwater Lighting | 漫射, 焦散圖案, 藍綠色調, 寧靜 | diffused, caustic patterns, blue/green hues, serene | 
+| 28 | 夜景燈光 | Night Scene Lighting | 路燈, 城市光暈, 黑暗, 大氣感 | streetlights, city glow, dark, atmospheric | 
+| 29 | 斑駁燈光 | Dappled Light | 光線穿過樹葉, 圖案陰影, 自然 | light through leaves, patterned shadows, natural | 
+| 30 | 魔法光輝 | Magical Glow / Aura | 魔法的, 發光, 奇幻, 輻射能量 | enchanted, luminous, fantasy, radiant energy | 
+
+## 色調提示詞 (Color Tone Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 單色 | Monochrome | 單一顏色, 同色系深淺, 黑白 | single color, shades of one hue, black and white | 
+| 2 | 棕褐色調 | Sepia Tone | 暖棕色, 復古, 老照片, 懷舊 | warm brown, vintage, old photo, nostalgic | 
+| 3 | 鮮豔色彩 | Vibrant Colors | 飽和, 明亮, 活潑, 豐富色調, 多彩 | saturated, bright, lively, rich hues, colorful | 
+| 4 | 暖色調 | Warm Color Palette | 紅色系, 橙色系, 黃色系, 溫馨, 活力, 吸引人 | reds, oranges, yellows, cozy, energetic, inviting | 
+| 5 | 冷色調 | Cool Color Palette | 藍色系, 綠色系, 紫色系, 平靜, 寧靜, 疏離 | blues, greens, purples, calm, serene, distant | 
+| 6 | 低飽和度 | Low Saturation / Desaturated | 柔和色彩, 含蓄,褪色, 陰鬱, 復古 | muted colors, subtle, faded, moody, vintage | 
+| 7 | 高對比度色調 | High Contrast Colors | 強烈差異, 大膽, 引人注目, 圖形感 | strong difference, bold, striking, graphic | 
+| 8 | 互補色 | Complementary Colors | 色輪對比色, 鮮明, 動態對比 | opposite on color wheel, vibrant, dynamic contrast | 
+| 9 | 類似色 | Analogous Colors | 色輪鄰近色, 和諧, 一致性 | adjacent on color wheel, harmonious, cohesive | 
+| 10 | 三色組 | Triadic Colors | 色輪均分色, 平衡, 鮮明 | evenly spaced on color wheel, balanced, vibrant | 
+| 11 | 漸變色 | Gradient Colors | 平滑過渡, 色彩混合, 現代, 柔和 | smooth transition, color blend, modern, soft | 
+| 12 | 金屬色 | Metallic Colors | 金色, 銀色, 青銅色, 閃亮, 反光, 奢華 | gold, silver, bronze, shiny, reflective, luxe | 
+| 13 | 大地色系 | Earth Tones | 棕色系, 綠色系, 米色系, 自然, 有機, 平靜 | browns, greens, beiges, natural, organic, calm | 
+| 14 | 海洋色系 | Ocean Tones | 藍色系, 青綠色系, 水生感, 寧靜, 深邃 | blues, teals, greens, aquatic, serene, deep | 
+| 15 | 電影色調 | Cinematic Color Grading | 風格化, 營造氛圍, 藍橙調, 特定外觀 | stylized, mood-setting, teal and orange, specific look | 
+| 16 | 復古色調 | Retro Colors / Vintage Palette | 褪色, 懷舊, 70年代, 80年代, 特定時代色調 | faded, nostalgic, 70s, 80s, specific era hues | 
+| 17 | 夢幻色調 | Dreamy Colors / Pastel Palette | 柔和, 明亮, 空靈, 奇幻, 溫和色調 | soft, light, ethereal, whimsical, gentle hues | 
+| 18 | 夜光色 | Fluorescent / Neon Colors | 發光, 鮮豔, UV光, 賽博龐克, 明亮 | glowing, vibrant, UV light, cyberpunk, bright | 
+| 19 | 彩虹色 | Rainbow Colors | 多彩, 鮮豔, 俏皮, 所有色調 | multi-colored, vibrant, playful, all hues | 
+
+## 運鏡提示詞 (Camera Movement Prompts)
+| 序號 | 中文 | 英文 | 額外提示 (中) | 額外提示 (英) | 
+ | ----- | ----- | ----- | ----- | ----- | 
+| 1 | 固定鏡頭 | Static Shot / Fixed Camera | 無運動, 穩定, 觀察式, 平靜 | no movement, stable, observational, calm | 
+| 2 | 推鏡頭 | Push-In / Dolly Zoom In | 靠近, 聚焦, 強化, 揭示 | moves closer, focus attention, intensify, reveal | 
+| 3 | 拉鏡頭 | Pull-Out / Dolly Zoom Out | 拉遠, 揭示背景, 減弱強調, 擴大視野 | moves away, reveal context, de-emphasize, widen | 
+| 4 | 水平搖鏡頭 | Pan Shot (Horizontal) | 掃描場景, 跟隨動作, 全景, 橫掃 | scans scenery, follow action, panoramic, sweeping | 
+| 5 | 垂直搖鏡頭 | Tilt Shot (Vertical) | 上下掃描, 揭示高度, 檢視, 雄偉 | scans up/down, reveal height, inspect, majestic | 
+| 6 | 移鏡頭 | Tracking Shot / Dolly Shot | 鏡頭跟隨主體, 跟隨, 平穩運動 | camera moves with subject, follow, smooth motion | 
+| 7 | 升降鏡頭 | Crane Shot / Jib Shot | 鏡頭升降, 高角度, 戲劇性揭示 | camera moves up/down, high angle, dramatic reveal | 
+| 8 | 環繞鏡頭 | Orbit Shot / Arc Shot | 環繞主體, 360度視角, 動感, 聚焦 | circles subject, 360 view, dynamic, focus | 
+| 9 | 旋轉鏡頭 | Roll Shot / Barrel Roll | 鏡頭繞軸旋轉, 迷失方向, 動感 | camera rotates on axis, disorienting, dynamic | 
+| 10 | 跟隨鏡頭 | Follow Shot | 鏡頭跟隨移動主體, 動感, 動作 | camera stays with moving subject, dynamic, action | 
+| 11 | 快速變焦 | Crash Zoom / Whip Zoom | 快速推拉, 戲劇效果, 充滿活力 | rapid zoom in/out, dramatic effect, energetic | 
+| 12 | 慢動作 | Slow Motion | 強調動作, 細節, 戲劇性, 優雅 | emphasizes action, detail, dramatic, graceful | 
+| 13 | 縮時攝影 | Timelapse | 壓縮時間, 雲彩流動, 都市生活, 快速 | compresses time, clouds moving, city life, fast | 
+| 14 | 手持鏡頭 | Handheld Shot | 晃動, 真實感, 紀錄片風格, 沈浸式 | shaky, realistic, documentary style, immersive | 
+| 15 | 穩定器鏡頭 | Steadicam Shot / Gimbal Shot | 平穩運動, 流暢, 電影感, 專業 | smooth movement, fluid, cinematic, professional | 
+| 16 | 機械臂鏡頭 | Robotic Arm Shot / Motion Control | 精確運動, 複雜路徑, 高科技, 動感 | precise movement, complex paths, high-tech, dynamic | 
+| 17 | 航拍鏡頭 | Aerial Shot / Drone Shot | 從高空拍攝, 開闊視野, 定場, 風景 | from above, expansive view, establishing, landscape | 
+| 18 | 穿越鏡頭 | Fly-Through Shot | 穿梭環境, 沈浸式, 動態路徑 | moves through environment, immersive, dynamic path | 
+| 19 | 推拉變焦 | Dolly Zoom / Vertigo Effect | 背景變化, 不安感, 希區考克式變焦 | background changes, unsettling, Hitchcock zoom | 
+| 20 | 第一人稱視角 | First-Person POV Shot | 主觀視角, 沈浸式, 角色眼睛 | subjective view, immersive, character's eyes | 
+| 21 | 子彈時間 | Bullet Time | 極慢動作, 物體凝固, 鏡頭移動 | extreme slow motion, object frozen, camera moves | 
+`;
+
+        const allPrompts = {};
+        let currentCategory = null;
+        let currentCategoryNameForDisplay = null; 
+        let currentCategoryPrompts = [];
+        let categoryOrder = []; 
+
+        promptDataString.trim().split('\n').forEach(line => {
+            line = line.trim();
+            if (line.startsWith('## ')) {
+                if (currentCategory) {
+                    allPrompts[currentCategory] = currentCategoryPrompts;
+                }
+                currentCategory = line.substring(3).trim();
+                currentCategoryNameForDisplay = currentCategory.split('(')[0].trim();
+                categoryOrder.push({ originalName: currentCategory, displayName: currentCategoryNameForDisplay });
+                currentCategoryPrompts = [];
+            } else if (line.startsWith('|') && line.includes('序號') && line.includes('中文')) {
+                // Skip header row
+            } else if (line.startsWith('|') && line.endsWith('|') && currentCategory) {
+                const cells = line.split('|').map(cell => cell.trim()).slice(1, -1);
+                if (cells.length === 0 || cells.every(c => c.startsWith('---'))) return;
+
+                // Simplified parsing: assumes all data rows will have 5 cells
+                // based on the corrected promptDataString structure.
+                if (cells.length >= 5) { 
+                    const prompt = {
+                        id: cells[0],
+                        cn: cells[1],
+                        en: cells[2],
+                        extra_cn: cells[3], 
+                        extra_en: cells[4]
+                    };
+                    if (prompt.id && prompt.cn) { // Basic validation
+                        currentCategoryPrompts.push(prompt);
+                    }
+                }
+            }
+        });
+        if (currentCategory) { // Add the last category
+            allPrompts[currentCategory] = currentCategoryPrompts;
+        }
+
+        const categoryTabsContainer = document.getElementById('categoryTabs');
+        const promptDisplayContainer = document.getElementById('promptDisplay');
+        const langToggleBtn = document.getElementById('langToggleBtn');
+        const langToggleText = document.getElementById('langToggleText');
+        let activeTabButton = null;
+        let currentDisplayLanguage = 'cn'; 
+        let currentSelectedCategoryOriginalName = null;
+
+        function showAlert(message) {
+            const alertBox = document.createElement('div');
+            alertBox.textContent = message;
+            alertBox.className = 'alert-message';
+            document.body.appendChild(alertBox);
+            setTimeout(() => alertBox.remove(), 3000);
+        }
+
+
+        function renderPrompts() {
+            if (!currentSelectedCategoryOriginalName) return;
+            displayPromptsForCategory(currentSelectedCategoryOriginalName);
+        }
+
+        function displayPromptsForCategory(categoryOriginalName) {
+            currentSelectedCategoryOriginalName = categoryOriginalName;
+            promptDisplayContainer.innerHTML = '';
+            const prompts = allPrompts[categoryOriginalName] || [];
+            
+            if (prompts.length === 0) {
+                promptDisplayContainer.innerHTML = `<p class="text-gray-500 col-span-full text-center py-10">此分類下沒有提示詞。</p>`;
+                return;
+            }
+
+            prompts.forEach(prompt => {
+                const card = document.createElement('div');
+                card.className = 'prompt-card';
+
+                const mainLang = currentDisplayLanguage === 'cn' ? 'cn' : 'en';
+                const altLang = currentDisplayLanguage === 'cn' ? 'en' : 'cn';
+                
+                const mainTitle = prompt[mainLang] || prompt[altLang] || "N/A"; 
+                const altTitle = prompt[altLang] || prompt[mainLang] || "N/A"; 
+
+                const extraMain = prompt[`extra_${mainLang}`];
+                
+                const extraMainLabel = currentDisplayLanguage === 'cn' ? '額外提示 (中):' : 'Additional (EN):';
+
+                card.innerHTML = `
+                    <div>
+                        <h3 class="text-lg font-semibold text-blue-600 mb-1">${prompt.id}. ${mainTitle}</h3>
+                        <p class="text-sm text-gray-500 mb-3">${altTitle}</p>
+                        ${extraMain ? `<div class="mt-2 text-xs space-y-0.5"><strong class="text-gray-600 font-medium">${extraMainLabel}</strong><p class="text-gray-500 leading-snug">${extraMain}</p></div>` : ''}
+                    </div>
+                    <div class="mt-4 space-y-2 pt-3 border-t border-gray-200">
+                        <button class="copy-btn copy-btn-cn w-full" data-prompt-id="${prompt.id}" data-category="${categoryOriginalName}">複製中文提示</button>
+                        <button class="copy-btn copy-btn-en w-full" data-prompt-id="${prompt.id}" data-category="${categoryOriginalName}">複製英文提示</button>
+                    </div>
+                `;
+                promptDisplayContainer.appendChild(card);
+            });
+
+            document.querySelectorAll('.copy-btn-cn, .copy-btn-en').forEach(button => {
+                button.addEventListener('click', function() {
+                    const promptId = this.dataset.promptId;
+                    const category = this.dataset.category;
+                    const targetLang = this.classList.contains('copy-btn-cn') ? 'cn' : 'en';
+                    const originalPrompt = allPrompts[category].find(p => p.id === promptId);
+
+                    if (!originalPrompt) return;
+
+                    let textToCopy = "";
+                    if (targetLang === 'cn') {
+                        textToCopy = originalPrompt.cn || "";
+                        if (originalPrompt.extra_cn) textToCopy += textToCopy ? `, ${originalPrompt.extra_cn}` : originalPrompt.extra_cn;
+                    } else {
+                        textToCopy = originalPrompt.en || "";
+                        if (originalPrompt.extra_en) textToCopy += textToCopy ? `, ${originalPrompt.extra_en}` : originalPrompt.extra_en;
+                    }
+                    
+                    const textarea = document.createElement('textarea');
+                    textarea.value = textToCopy;
+                    textarea.style.position = 'absolute'; // Prevent page scroll
+                    textarea.style.left = '-9999px';    // Move off-screen
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.textContent = '已複製!';
+                        setTimeout(() => { 
+                            this.textContent = targetLang === 'cn' ? '複製中文提示' : '複製英文提示';
+                        }, 1500);
+                    } catch (err) {
+                        console.error('無法複製提示詞: ', err);
+                        showAlert('複製失敗，請手動複製。');
+                        this.textContent = '複製失敗';
+                         setTimeout(() => { 
+                            this.textContent = targetLang === 'cn' ? '複製中文提示' : '複製英文提示';
+                        }, 1500);
+                    }
+                    document.body.removeChild(textarea);
+                });
+            });
+        }
+        
+        categoryOrder.forEach(catInfo => {
+            const tab = document.createElement('button');
+            tab.className = 'block w-full text-left px-3 py-2.5 rounded-md text-gray-700 hover:bg-blue-100 hover:text-blue-700 transition duration-150 ease-in-out text-sm font-medium tab-inactive';
+            tab.textContent = catInfo.displayName;
+            tab.onclick = () => {
+                if (activeTabButton) {
+                    activeTabButton.classList.remove('tab-active');
+                    activeTabButton.classList.add('tab-inactive');
+                }
+                tab.classList.add('tab-active');
+                tab.classList.remove('tab-inactive');
+                activeTabButton = tab;
+                displayPromptsForCategory(catInfo.originalName);
+            };
+            categoryTabsContainer.appendChild(tab);
+        });
+        
+        function updateLangToggleAppearance() {
+            console.log("Updating lang toggle. Current lang:", currentDisplayLanguage);
+            if (currentDisplayLanguage === 'cn') {
+                langToggleText.textContent = '切換英文';
+                langToggleBtn.classList.add('active-lang-cn');
+                langToggleBtn.classList.remove('active-lang-en');
+            } else {
+                langToggleText.textContent = '切換中文';
+                langToggleBtn.classList.add('active-lang-en');
+                langToggleBtn.classList.remove('active-lang-cn');
+            }
+        }
+
+        langToggleBtn.addEventListener('click', () => {
+            console.log("Language toggle clicked. Current lang BEFORE switch:", currentDisplayLanguage);
+            if (currentDisplayLanguage === 'cn') {
+                currentDisplayLanguage = 'en';
+            } else {
+                currentDisplayLanguage = 'cn';
+            }
+            console.log("Language toggle. Current lang AFTER switch:", currentDisplayLanguage);
+            updateLangToggleAppearance();
+            renderPrompts(); 
+        });
+
+        // Initialize
+        updateLangToggleAppearance();
+        if (categoryOrder.length > 0) {
+            const firstTab = categoryTabsContainer.querySelector('button');
+            if (firstTab) firstTab.click();
+        }
+
+        const assignButton = document.getElementById('assignButton');
+        const studentIdInput = document.getElementById('studentId');
+        const assignedPromptsModal = document.getElementById('assignedPromptsModal');
+        const assignedPromptsContent = document.getElementById('assignedPromptsContent');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalTitle = document.getElementById('modalTitle');
+
+        assignButton.addEventListener('click', () => {
+            const studentId = parseInt(studentIdInput.value);
+            if (isNaN(studentId) || studentId < 1 || studentId > 18) {
+                showAlert('請輸入有效的學生序號 (1-18)。');
+                return;
+            }
+
+            modalTitle.textContent = `學生 ${studentId} 的提示詞：`;
+            assignedPromptsContent.innerHTML = ''; 
+
+            categoryOrder.forEach(catInfo => {
+                const categoryOriginalName = catInfo.originalName;
+                const categoryDisplayName = catInfo.displayName;
+                const promptsInCategory = allPrompts[categoryOriginalName] || [];
+                if (promptsInCategory.length === 0) return;
+
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'mb-4 p-3.5 bg-gray-50 rounded-lg shadow-sm border border-gray-200';
+                
+                const categoryTitle = document.createElement('h4');
+                categoryTitle.className = 'font-semibold text-base text-blue-700 mb-2 border-b border-gray-300 pb-1.5';
+                categoryTitle.textContent = categoryDisplayName;
+                categoryDiv.appendChild(categoryTitle);
+
+                const ul = document.createElement('ul');
+                ul.className = 'list-none space-y-2 pl-1 mt-2.5';
+
+                const startIndex = (studentId - 1) * 5;
+                const numToSelect = Math.min(5, promptsInCategory.length);
+
+                for (let i = 0; i < numToSelect; i++) {
+                    const promptIndex = (startIndex + i) % promptsInCategory.length;
+                    const prompt = promptsInCategory[promptIndex];
+                    const li = document.createElement('li');
+                    li.className = 'text-xs text-gray-700 border border-gray-200 p-2 rounded bg-white shadow-xs';
+                    
+                    const mainLangText = currentDisplayLanguage === 'cn' ? prompt.cn : prompt.en;
+                    const altLangText  = currentDisplayLanguage === 'cn' ? prompt.en : prompt.cn;
+                    const extraMainLangText = currentDisplayLanguage === 'cn' ? prompt.extra_cn : prompt.extra_en;
+                    const extraMainLabel = currentDisplayLanguage === 'cn' ? '額外(中):' : 'Extra(EN):';
+
+                    li.innerHTML = `<div class="font-medium text-gray-800">${prompt.id}. ${mainLangText}</div>
+                                    <div class="text-gray-500 text-[0.7rem] mb-0.5">(${altLangText})</div>
+                        ${extraMainLangText ? `<div class="text-gray-600 text-[0.7rem] mt-1"><strong class="font-normal">${extraMainLabel}</strong> ${extraMainLangText}</div>` : ''}`;
+                    ul.appendChild(li);
+                }
+                categoryDiv.appendChild(ul);
+                assignedPromptsContent.appendChild(categoryDiv);
+            });
+            assignedPromptsModal.style.display = 'block';
+        });
+
+        closeModalButton.onclick = () => {
+            assignedPromptsModal.style.display = 'none';
+        }
+
+        window.onclick = (event) => {
+            if (event.target == assignedPromptsModal) {
+                assignedPromptsModal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
+
