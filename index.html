@@ -35,26 +35,29 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        .sticky-sidebar {
-            position: sticky;
-            top: 1.5rem;
-            height: calc(100vh - 3rem);
-            overflow-y: auto;
-            padding-right: 0.5rem; /* Space for scrollbar */
-        }
-        .sticky-sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .sticky-sidebar::-webkit-scrollbar-track {
-            background: #edf2f7; /* Tailwind gray-200 */
-            border-radius: 10px;
-        }
-        .sticky-sidebar::-webkit-scrollbar-thumb {
-            background: #a0aec0; /* Tailwind gray-500 */
-            border-radius: 10px;
-        }
-        .sticky-sidebar::-webkit-scrollbar-thumb:hover {
-            background: #718096; /* Tailwind gray-600 */
+        /* Sticky sidebar for desktop, normal flow for mobile */
+        @media (min-width: 768px) { /* md breakpoint */
+            .sticky-sidebar {
+                position: sticky;
+                top: 1.5rem;
+                height: calc(100vh - 3rem);
+                overflow-y: auto;
+                padding-right: 0.5rem; /* Space for scrollbar */
+            }
+            .sticky-sidebar::-webkit-scrollbar {
+                width: 6px;
+            }
+            .sticky-sidebar::-webkit-scrollbar-track {
+                background: #edf2f7; /* Tailwind gray-200 */
+                border-radius: 10px;
+            }
+            .sticky-sidebar::-webkit-scrollbar-thumb {
+                background: #a0aec0; /* Tailwind gray-500 */
+                border-radius: 10px;
+            }
+            .sticky-sidebar::-webkit-scrollbar-thumb:hover {
+                background: #718096; /* Tailwind gray-600 */
+            }
         }
         .modal {
             display: none;
@@ -163,11 +166,15 @@
             <p class="text-gray-500 text-center sm:text-left text-sm md:text-base">探索與學習鏡頭語言的創意提示</p>
         </header>
 
-        <div class="md:flex md:space-x-8">
-            <aside id="categorySidebar" class="md:w-1/4 lg:w-1/5 mb-8 md:mb-0 sticky-sidebar p-4 bg-white rounded-lg shadow-md">
+        <!-- Flex container for sidebar and main content -->
+        <!-- On mobile (default), it's flex-col. On md and up, it's flex-row -->
+        <div class="flex flex-col md:flex-row md:space-x-8">
+            <!-- Sidebar: Takes full width on mobile, specific width on desktop -->
+            <aside id="categorySidebar" class="w-full md:w-1/4 lg:w-1/5 mb-8 md:mb-0 p-4 bg-white rounded-lg shadow-md md:sticky-sidebar">
                 <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b border-gray-300 pb-3">提示詞分類</h2>
                 <nav id="categoryTabs" class="space-y-1.5">
-                    </nav>
+                    <!-- Category tabs will be injected here -->
+                </nav>
                  <div class="mt-10 pt-6 border-t border-gray-300">
                     <h2 class="text-xl font-semibold mb-4 text-gray-700">學生提示詞分配</h2>
                     <div class="space-y-4">
@@ -182,9 +189,11 @@
                 </div>
             </aside>
 
-            <main class="md:w-3/4 lg:w-4/5">
+            <!-- Main Content: Takes full width on mobile, remaining width on desktop -->
+            <main class="w-full md:w-3/4 lg:w-4/5">
                 <div id="promptDisplay" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
-                    </div>
+                    <!-- Prompts will be injected here -->
+                </div>
             </main>
         </div>
     </div>
@@ -196,7 +205,8 @@
                 <span class="close-button" id="closeModalButton">&times;</span>
             </div>
             <div id="assignedPromptsContent" class="space-y-4 text-sm">
-                </div>
+                <!-- Assigned prompts will be injected here -->
+            </div>
         </div>
     </div>
 
@@ -397,8 +407,6 @@
                 const cells = line.split('|').map(cell => cell.trim()).slice(1, -1);
                 if (cells.length === 0 || cells.every(c => c.startsWith('---'))) return;
 
-                // Simplified parsing: assumes all data rows will have 5 cells
-                // based on the corrected promptDataString structure.
                 if (cells.length >= 5) { 
                     const prompt = {
                         id: cells[0],
@@ -407,13 +415,13 @@
                         extra_cn: cells[3], 
                         extra_en: cells[4]
                     };
-                    if (prompt.id && prompt.cn) { // Basic validation
+                    if (prompt.id && prompt.cn) { 
                         currentCategoryPrompts.push(prompt);
                     }
                 }
             }
         });
-        if (currentCategory) { // Add the last category
+        if (currentCategory) { 
             allPrompts[currentCategory] = currentCategoryPrompts;
         }
 
@@ -497,8 +505,8 @@
                     
                     const textarea = document.createElement('textarea');
                     textarea.value = textToCopy;
-                    textarea.style.position = 'absolute'; // Prevent page scroll
-                    textarea.style.left = '-9999px';    // Move off-screen
+                    textarea.style.position = 'absolute'; 
+                    textarea.style.left = '-9999px';    
                     document.body.appendChild(textarea);
                     textarea.select();
                     try {
@@ -538,7 +546,6 @@
         });
         
         function updateLangToggleAppearance() {
-            console.log("Updating lang toggle. Current lang:", currentDisplayLanguage);
             if (currentDisplayLanguage === 'cn') {
                 langToggleText.textContent = '切換英文';
                 langToggleBtn.classList.add('active-lang-cn');
@@ -551,13 +558,11 @@
         }
 
         langToggleBtn.addEventListener('click', () => {
-            console.log("Language toggle clicked. Current lang BEFORE switch:", currentDisplayLanguage);
             if (currentDisplayLanguage === 'cn') {
                 currentDisplayLanguage = 'en';
             } else {
                 currentDisplayLanguage = 'cn';
             }
-            console.log("Language toggle. Current lang AFTER switch:", currentDisplayLanguage);
             updateLangToggleAppearance();
             renderPrompts(); 
         });
